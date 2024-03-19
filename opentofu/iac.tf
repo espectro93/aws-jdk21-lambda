@@ -6,16 +6,31 @@ locals {
   lambda_payload_filename = "./build/awsjdk21lambda-0.0.1-SNAPSHOT.jar"
 }
 
+# IAM Roles and Policies
 data "aws_iam_policy_document" "assume_role" {
   statement {
     effect = "Allow"
-
     principals {
       type        = "Service"
       identifiers = ["lambda.amazonaws.com"]
     }
-
     actions = ["sts:AssumeRole"]
+  }
+}
+
+data "aws_iam_policy_document" "sqs" {
+  statement {
+    actions   = ["sqs:*"]
+    effect    = "Allow"
+    resources = ["*"]
+  }
+}
+
+data "aws_iam_policy_document" "logging" {
+  statement {
+    actions   = ["logs:*"]
+    effect    = "Allow"
+    resources = ["*"]
   }
 }
 
@@ -24,60 +39,40 @@ resource "aws_iam_role" "iam_for_lambda" {
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
 }
 
+resource "aws_iam_policy" "sqs" {
+  name   = "sqs"
+  policy = data.aws_iam_policy_document.sqs.json
+}
+
+resource "aws_iam_policy" "logging" {
+  name   = "logging"
+  policy = data.aws_iam_policy_document.logging.json
+}
+
 resource "aws_iam_role_policy_attachment" "messaging" {
   policy_arn = aws_iam_policy.sqs.arn
   role       = aws_iam_role.iam_for_lambda.name
 }
 
-resource "aws_iam_policy" "sqs" {
-  name = "sqs"
-  policy = data.aws_iam_policy_document.sqs.json
-}
-
-data "aws_iam_policy_document" "sqs" {
-  statement {
-    actions = ["sqs:*"]
-    effect  = "Allow"
-
-    resources = ["*"]
-  }
-}
-
 resource "aws_iam_role_policy_attachment" "logging" {
   policy_arn = aws_iam_policy.logging.arn
-  role       = aws_iam_role.iam_for_lambda.arn
+  role       = aws_iam_role.iam_for_lambda.name
 }
 
-resource "aws_iam_policy" "logging" {
-  name = "logging"
-  policy = data.aws_iam_policy_document.logging.json
-}
-
-data "aws_iam_policy_document" "logging" {
-  statement {
-    actions = ["logs:*"]
-    effect  = "Allow"
-
-    resources = ["*"]
-  }
-}
-
-
+# Lambda Function and Packaging
 data "archive_file" "lambda" {
   type        = "zip"
-  source_file = "lambda.jar"
+  source_file = local.lambda_payload_filename
   output_path = "lambda_function_payload.zip"
 }
 
 resource "aws_lambda_function" "test_lambda" {
-  filename      = "lambda_function_payload.zip"
-  function_name = "aws_jdk21_lambda"
-  role          = aws_iam_role.iam_for_lambda.arn
-  handler       = "org.springframework.cloud.function.adapter.aws.FunctionInvoker::handleRequest"
-
+  filename         = data.archive_file.lambda.output_path
+  function_name    = "aws_jdk21_lambda"
+  role             = aws_iam_role.iam_for_lambda.arn
+  handler          = "org.springframework.cloud.function.adapter.aws.FunctionInvoker::handleRequest"
   source_code_hash = data.archive_file.lambda.output_base64sha256
-
-  runtime = "java21"
+  runtime          = "java21"
 }
 
 resource "aws_lambda_permission" "sqs" {

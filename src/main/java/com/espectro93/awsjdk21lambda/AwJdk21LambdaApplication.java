@@ -4,18 +4,19 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
+import java.util.Base64;
 import java.util.function.Function;
 
 @SpringBootApplication
-public class Awsjdk21lambdaApplication {
+public class AwJdk21LambdaApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(Awsjdk21lambdaApplication.class, args);
+        SpringApplication.run(AwJdk21LambdaApplication.class, args);
     }
 
     @Bean
-    public Function<String, String> uppercase() {
-        return String::toUpperCase;
+    public Function<String, String> obfuscate() {
+        return str -> Base64.getEncoder().encodeToString(str.getBytes());
     }
 
 }
