@@ -1,0 +1,1 @@
+# Resources for article on AWS Lambda with Spring Boot
